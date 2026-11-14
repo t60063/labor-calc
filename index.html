@@ -95,7 +95,8 @@ tr.sum td{font-weight:700;border-bottom:2px solid var(--ink)}
 .grid>*,label{min-width:0}
 input[type=month]{-webkit-appearance:none;appearance:none;display:block;text-align:left}
 .seg button{line-height:1.35}
-.tot span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tot{display:flex;flex-direction:column;justify-content:space-between;gap:4px}
+.tot span{white-space:normal;line-height:1.35;word-break:keep-all;overflow-wrap:anywhere}
 .sumlist{display:flex;flex-direction:column;gap:10px}
 .srow{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .srow.total{border:2px solid var(--accent);background:var(--accent-soft)}
