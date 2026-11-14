@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>勞保勞退日數試算</title>
+<meta name="theme-color" content="#1f6b4f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="勞保試算">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single column ledger — settings, one card per month, then a 跨月總表 */
+:root{
+  --bg:#f3f5f2; --surface:#ffffff; --ink:#1d2a24; --muted:#5d6b64; --line:#d6ddd8;
+  --accent:#1f6b4f; --accent-soft:#e3efe9; --emp:#8a4b12; --emp-soft:#f6ebdf; --warn:#9a6a00; --warn-soft:#fbf1d6;
+  --f-display:"Noto Serif TC","Songti TC",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121815; --surface:#1a221e; --ink:#e4ebe7; --muted:#9aa8a1; --line:#2e3a34;
+  --accent:#6cc39e; --accent-soft:#1f3329; --emp:#e7a666; --emp-soft:#352719; --warn:#e8c062; --warn-soft:#3a3018; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121815; --surface:#1a221e; --ink:#e4ebe7; --muted:#9aa8a1; --line:#2e3a34;
+  --accent:#6cc39e; --accent-soft:#1f3329; --emp:#e7a666; --emp-soft:#352719; --warn:#e8c062; --warn-soft:#3a3018; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:720px;margin:0 auto;padding-block:24px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--f-display);font-size:1.6rem;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;font-size:.9rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.card h2{font-size:.8rem;letter-spacing:.08em;color:var(--muted);margin:0;font-weight:500}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink);padding:9px;font:inherit;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface);font-weight:500}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
+input[type=number],input[type=month]{font-family:var(--f-num);font-size:1.05rem;padding:9px 10px;border:1px solid var(--line);
+  border-radius:7px;background:var(--bg);color:var(--ink);width:100%;box-sizing:border-box;min-height:44px}
+input:disabled{opacity:.6}
+input:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.check{flex-direction:row;align-items:center;gap:8px;color:var(--ink)}
+.q{font-size:.85rem;color:var(--muted)}
+.dayrow{flex-direction:row;align-items:center;gap:10px;color:var(--ink)}
+.dayrow span:first-child{width:4.5em;flex:none}
+.dayrow input{max-width:140px}
+.daylist{display:flex;flex-direction:column;gap:8px}
+.mhead{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between}
+.mtitle{font-family:var(--f-display);font-size:1.25rem;font-weight:700;margin:0}
+.tag{font-size:.75rem;padding:2px 8px;border-radius:999px;margin-left:6px;font-family:var(--f-body);font-weight:500;vertical-align:middle}
+.tag.ok{background:var(--accent-soft);color:var(--accent)}
+.tag.tmp{background:var(--warn-soft);color:var(--warn)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:7px 12px;font:inherit;font-size:.85rem;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--surface);border-color:var(--accent);font-weight:500;padding:11px;font-size:.95rem}
+.btn.ghost{color:var(--muted)}
+.wage{font-size:.9rem;color:var(--muted)}
+.wage b{font-family:var(--f-num);color:var(--ink);font-weight:500}
+.wtot{margin-top:6px;padding:12px 14px;border-radius:8px;background:var(--accent-soft);color:var(--ink);font-size:1.2rem;font-weight:500;line-height:1.5}
+.wtot b{font-size:1.6rem;color:var(--accent);font-weight:700}
+.totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:640px){.totals{grid-template-columns:repeat(2,1fr)}}
+.tot{border-radius:8px;padding:10px 12px;min-width:0}
+.tot span{display:block;font-size:.8rem}
+.tot strong{font-family:var(--f-num);font-size:1.4rem;font-weight:500;font-variant-numeric:tabular-nums}
+.t-stu{background:var(--accent-soft);color:var(--accent)}
+.t-emp{background:var(--emp-soft);color:var(--emp)}
+
+.bases{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:.8rem;border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--muted)}
+.chip b{font-family:var(--f-num);color:var(--ink);font-weight:500}
+details summary{cursor:pointer;color:var(--accent);font-size:.88rem}
+.tbl{overflow-x:auto;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:500;color:var(--muted);font-size:.78rem;white-space:nowrap}
+td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.f{font-family:var(--f-num);font-size:.78rem;color:var(--muted)}
+tr.sum td{font-weight:700;border-bottom:2px solid var(--ink)}
+.who{font-size:.72rem;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.who.s{background:var(--accent-soft);color:var(--accent)}
+.who.e{background:var(--emp-soft);color:var(--emp)}
+.warnbox{font-size:.82rem;background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:8px 12px}
+.gsum{font-family:var(--f-display);font-weight:700;font-size:1.05rem;cursor:pointer;color:var(--ink)}
+.steps{margin:4px 0 0;padding-left:1.4em;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
+.steps b{color:var(--accent)}
+.gnote{margin:0;font-size:.82rem;color:var(--muted)}
+.hint{margin:0;font-size:.82rem;color:var(--warn);background:var(--warn-soft);border-radius:7px;padding:6px 10px}
+.grid>*,label{min-width:0}
+input[type=month]{-webkit-appearance:none;appearance:none;display:block;text-align:left}
+.seg button{line-height:1.35}
+.tot span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sumlist{display:flex;flex-direction:column;gap:10px}
+.srow{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.srow.total{border:2px solid var(--accent);background:var(--accent-soft)}
+.shead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 10px}
+.shead b{font-size:1rem}
+.shead span{font-size:.82rem;color:var(--muted);font-family:var(--f-num)}
+.svals{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+@media (max-width:640px){.svals{grid-template-columns:repeat(3,1fr)}}
+.sv{display:flex;flex-direction:column;min-width:0}
+.sv span{font-size:.72rem;color:var(--muted)}
+.sv b{font-family:var(--f-num);font-weight:500;font-variant-numeric:tabular-nums;font-size:.98rem}
+.sv.s b{color:var(--accent)}
+.sv.e b{color:var(--emp);font-weight:700}
+.note{font-size:.82rem;color:var(--muted);margin:0;display:flex;flex-direction:column;gap:4px}
+.note p{margin:0}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <h1>勞保勞退日數試算</h1>
+    <p class="sub">可跨月份、跨年度｜依各月份所屬年度自動套用最低工資與級距</p>
+  </header>
+
+  <details class="card guide" open>
+    <summary class="gsum">使用說明</summary>
+    <ol class="steps">
+      <li><b>共同設定</b>：選人員身分（本國人／外國人），再選「月薪」或「時薪」，確認職保費率（預設 0.11%），學生或兼任人員請勾「部分工時」。</li>
+      <li><b>填每個月</b>：選月份，填時薪和當月工作天數。每天時數相同就填一次；不同就選「不相同」，逐天填寫。</li>
+      <li><b>核對月薪資總額</b>：綠色區塊是當月薪資總額，系統用它對照投保級距，請先確認正確。</li>
+      <li><b>投保天數</b>：預設等於工作天數（上工當天加保、下工退保）。若加保期間較長，取消勾選後自行填寫。</li>
+      <li><b>跨月份</b>：按「＋ 新增下一個月」，可用「複製上個月」快速帶入。最下方「跨月總表」有各月金額與合計。</li>
+    </ol>
+    <p class="gnote">提醒：116年數字為暫定，正式公告前僅供估算；實際金額以勞保局繳款單為準，個別項目可能有 1 元尾差。本頁輸入的資料不會儲存，也不會傳給別人。</p>
+  </details>
+
+  <section class="card" aria-label="共同設定">
+    <h2>共同設定</h2>
+    <span class="q">人員身分</span>
+    <div class="seg" role="group" aria-label="人員身分" style="margin-top:-6px">
+      <button id="n-tw" data-act="nat" data-v="tw" aria-pressed="true">本國人（有台灣身分證）</button>
+      <button id="n-fx" data-act="nat" data-v="fx" aria-pressed="false">外國人</button>
+    </div>
+    <p class="hint" id="fxhint" hidden>外國人不計算勞退，也不加就業保險（自付與雇主皆不計）。外籍配偶、已取得永久居留者依法視同本國人，請選「本國人」。</p>
+    <span class="q">計薪方式</span>
+    <div class="seg" role="group" aria-label="計薪方式" style="margin-top:-6px">
+      <button id="m-month" data-act="mode" data-v="month" aria-pressed="false">月薪</button>
+      <button id="m-hour" data-act="mode" data-v="hour" aria-pressed="true">時薪</button>
+    </div>
+    <div class="grid">
+      <label>職保費率（%）<input id="occ" type="number" min="0" step="0.01" value="0.11"></label>
+    </div>
+    <label class="check"><input id="pt" type="checkbox" checked> 部分工時（勞保最低級距 11,100）</label>
+    <label class="check"><input id="nhi" type="checkbox" checked> 計入雇主健保補充保費 2.11%（以當月支付薪資計算）</label>
+  </section>
+
+  <div id="months" style="display:flex;flex-direction:column;gap:20px"></div>
+
+  <button class="btn primary" data-act="add">＋ 新增下一個月</button>
+
+  <section class="card" aria-label="跨月總表">
+    <h2>跨月總表</h2>
+    <div id="sumrows" class="sumlist"></div>
+  </section>
+
+  <div class="note">
+    <p>計算方式：各項＝投保級距 × 費率 × 負擔比例 × 投保天數 ÷ 30，逐項四捨五入後加總。每月一律以30天計，每個月份各自對照級距。</p>
+    <p>雇主勞保＝普通事故＋就保＋職保（同學校勞保費負擔表的算法）；墊償基金另列。</p>
+    <p>115年：最低工資29,500、時薪196（正式）。116年：最低工資30,900、時薪205，已經審議會通過、待行政院核定，116年分級表尚未公告，此處依往例推估（第一級改為30,900），標示為暫定。費率皆以12.5%計。</p>
+    <p>薪資介於兩級距之間時往上取。職保下限為當年度最低工資。健保按月計收，未列入。</p>
+  </div>
+</div>
+
+<script>
+const PT=[11100,12540,13500,15840,16500,17280,17880,19047,20008,21009,22000,23100,24000,25250,26400,27600];
+const HI=[33300,34800,36300,38200,40100,42000,43900,45800];
+const OCC_HI=[48200,50600,53000,55400,57800,60800,63800,66800,69800,72800];
+const PEN_LOW=[1500,3000,4500,6000,7500,8700,9900];
+const PEN_HI=[76500,80200,83900,87600,92100,96600,101100,105600,110100,115500,120900,126300,131700,137100,142500,147900,150000];
+const YEARS={
+  115:{min:29500,hour:196,ft:[29500,30300,31800,...HI],tmp:false},
+  116:{min:30900,hour:205,ft:[30900,31800,...HI],tmp:true}
+};
+function cfgFor(ym){
+  const roc=(+ym.slice(0,4)||2026)-1911;
+  const y=YEARS[roc]?roc:(roc>116?116:115);
+  return {roc,y,exact:y===roc,...YEARS[y]};
+}
+const grade=(t,w)=>{for(const v of t) if(w<=v) return v; return t[t.length-1];};
+const $=id=>document.getElementById(id);
+const fmt=n=>n.toLocaleString('zh-TW');
+const nz=v=>Math.max(0,parseFloat(v)||0);
+const nextYm=ym=>{let [y,m]=ym.split('-').map(Number);m++;if(m>12){m=1;y++;}return `${y}-${String(m).padStart(2,'0')}`;};
+const rocLabel=ym=>{const [y,m]=ym.split('-').map(Number);return `${y-1911}年${m}月`;};
+
+let mode='hour';
+const blank=ym=>({ym,salary:22800,rate:cfgFor(ym).hour,wdays:5,same:true,hours:4,dh:[],sync:true,ins:5,full:true});
+let months=[blank('2026-10')];
+
+function dayRows(i){
+  const m=months[i];let h='';
+  for(let j=0;j<m.wdays;j++){
+    if(m.dh[j]===undefined) m.dh[j]=m.hours;
+    h+=`<label class="dayrow"><span>第 ${j+1} 天</span><input type="number" min="0" step="0.5" id="d${i}_${j}" data-i="${i}" data-k="dh" data-j="${j}" value="${m.dh[j]}"><span>小時</span></label>`;
+  }
+  return h;
+}
+function monthHTML(i){
+  const m=months[i];const hour=mode==='hour';
+  return `<section class="card" aria-label="${rocLabel(m.ym)}">
+    <div class="mhead">
+      <p class="mtitle" id="t${i}"></p>
+      <div class="acts">
+        ${i>0?`<button class="btn" data-act="copy" data-i="${i}">複製上個月</button>`:''}
+        ${months.length>1?`<button class="btn ghost" data-act="del" data-i="${i}">刪除</button>`:''}
+      </div>
+    </div>
+    <div class="grid">
+      <label>月份<input type="month" id="ym${i}" data-i="${i}" data-k="ym" value="${m.ym}"></label>
+      ${hour
+        ?`<label>時薪（元）<input type="number" min="0" id="rate${i}" data-i="${i}" data-k="rate" value="${m.rate}"></label>
+          <label>當月工作天數<input type="number" min="0" max="31" id="wd${i}" data-i="${i}" data-k="wdays" value="${m.wdays}"></label>`
+        :`<label>月薪資總額（元）<input type="number" min="0" id="sal${i}" data-i="${i}" data-k="salary" value="${m.salary}"></label>`}
+    </div>
+    ${hour?`
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span class="q">每天工作時數都相同嗎？</span>
+      <div class="seg" role="group" aria-label="每天時數是否相同">
+        <button data-act="same" data-i="${i}" data-v="1" aria-pressed="${m.same}">相同</button>
+        <button data-act="same" data-i="${i}" data-v="0" aria-pressed="${!m.same}">不相同</button>
+      </div>
+    </div>
+    ${m.same
+      ?`<div class="grid"><label>每天時數<input type="number" min="0" step="0.5" id="h${i}" data-i="${i}" data-k="hours" value="${m.hours}"></label></div>`
+      :`<div class="daylist" id="dl${i}">${dayRows(i)}</div>`}`:`
+    <p class="hint">請填約定的整月月薪。月中到職或離職也一樣，不要填按天數折算後的金額。</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span class="q">這個月是整月投保，還是只保幾天？</span>
+      <div class="seg" role="group" aria-label="投保期間">
+        <button data-act="full" data-i="${i}" data-v="1" aria-pressed="${m.full}">整月投保</button>
+        <button data-act="full" data-i="${i}" data-v="0" aria-pressed="${!m.full}">只保幾天</button>
+      </div>
+    </div>`}
+    <div class="grid" ${!hour&&m.full?'hidden':''}>
+      <label>投保天數（加保至退保）<input type="number" min="0" max="30" id="ins${i}" data-i="${i}" data-k="ins" value="${m.ins}"></label>
+    </div>
+    ${hour?`<label class="check"><input type="checkbox" id="sy${i}" data-i="${i}" data-k="sync" ${m.sync?'checked':''}> 投保天數同工作天數</label>`:''}
+    <div class="wage" id="w${i}"></div>
+    <div id="r${i}" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>`;
+}
+function render(){$('months').innerHTML=months.map((_,i)=>monthHTML(i)).join('');compute();}
+
+let nat='tw';
+function calcMonth(m,occPct,pt){
+  const c=cfgFor(m.ym);const hour=mode==='hour';
+  const wd=Math.min(31,Math.round(nz(m.wdays)));
+  let hl=[],totH=0,wage;
+  if(hour){
+    hl=m.same?Array(wd).fill(nz(m.hours)):m.dh.slice(0,wd).map(nz);
+    totH=Math.round(hl.reduce((a,b)=>a+b,0)*100)/100;
+    wage=Math.round(nz(m.rate)*totH);
+  } else wage=Math.round(nz(m.salary));
+  const d=Math.min(30,Math.round(hour?(m.sync?wd:nz(m.ins)):(m.full?30:nz(m.ins))));
+  const li=grade(pt?[...PT,...c.ft]:c.ft,wage);
+  const oc=grade([...c.ft,...OCC_HI],wage);
+  const pe=grade([...PEN_LOW,...PT,...c.ft,...OCC_HI,...PEN_HI],wage);
+  const f=d+'/30';
+  const items=[
+    ['普通事故','s',`${fmt(li)} × 11.5% × 20% × ${f}`,li*.115*.2],
+    ['就業保險','s',`${fmt(li)} × 1% × 20% × ${f}`,li*.01*.2],
+    ['普通事故','e',`${fmt(li)} × 11.5% × 70% × ${f}`,li*.115*.7],
+    ['就業保險','e',`${fmt(li)} × 1% × 70% × ${f}`,li*.01*.7],
+    ['職災保險','e',`${fmt(oc)} × ${occPct}% × ${f}`,oc*occPct/100],
+    ['勞退提繳','e',`${fmt(pe)} × 6% × ${f}`,pe*.06],
+    ['墊償基金','e',`${fmt(li)} × 0.025% × ${f}`,li*.00025],
+  ].map(r=>[...r,Math.round(r[3]*d/30)]);
+  if(nat==='fx') [1,3,5].forEach(k=>{items[k][2]='外國人不適用';items[k][4]=0;});
+  const nb=(!hour&&!m.full)?Math.round(wage*d/30):wage;
+  const nhiOn=$('nhi')?$('nhi').checked:true;
+  items.push(['健保補充保費','e',nhiOn?`${fmt(nb)}（當月支付薪資）× 2.11%`:'未計入',0,nhiOn?Math.round(nb*.0211):0]);
+  return {c,wd,hl,totH,wage,d,li,oc,pe,items,nb,nhi:items[7][4],
+    stu:items[0][4]+items[1][4],ins:items[2][4]+items[3][4]+items[4][4],pen:items[5][4],gf:items[6][4]};
+}
+
+function sblock(title,sub,v,total){
+  const cell=(k,x,cls)=>`<div class="sv ${cls||''}"><span>${k}</span><b>${x}</b></div>`;
+  const empAll=v.ins+(nat==='fx'?0:v.pen)+v.nhi+v.gf;
+  return `<div class="srow${total?' total':''}"><div class="shead"><b>${title}</b>${sub?`<span>${sub}</span>`:''}</div>
+    <div class="svals">${cell('自付',fmt(v.stu),'s')}${cell('雇主勞保',fmt(v.ins))}${cell('雇主勞退',nat==='fx'?'—':fmt(v.pen))}${cell('補充保費',fmt(v.nhi))}${cell('墊償基金',fmt(v.gf))}${cell('雇主合計',fmt(empAll),'e')}</div></div>`;
+}
+function compute(){
+  const occPct=nz($('occ').value), pt=$('pt').checked, hour=mode==='hour';
+  const sum={stu:0,ins:0,pen:0,gf:0,nhi:0};let srows='';
+  months.forEach((m,i)=>{
+    const r=calcMonth(m,occPct,pt);
+    $('t'+i).innerHTML=`${rocLabel(m.ym)}<span class="tag ${r.c.tmp?'tmp':'ok'}">${r.c.tmp?r.c.y+'年暫定':r.c.y+'年正式'}</span>`;
+    const insEl=$('ins'+i);
+    if(hour&&m.sync){insEl.value=r.d;insEl.disabled=true;}else insEl.disabled=false;
+    $('w'+i).innerHTML=hour
+      ?(m.same
+        ?`<div class="wtot">月薪資總額＝${fmt(nz(m.rate))} × ${nz(m.hours)} 小時 × ${r.wd} 天＝<b>${fmt(r.wage)}</b> 元</div>`
+        :`總工時＝${r.hl.join('＋')||0}＝<b>${r.totH}</b> 小時<div class="wtot">月薪資總額＝${fmt(nz(m.rate))} × ${r.totH}＝<b>${fmt(r.wage)}</b> 元</div>`)
+      :`<div class="wtot">月薪資總額 <b>${fmt(r.wage)}</b> 元</div>`;
+    const warn=[];
+    if(!r.c.exact) warn.push(`${r.c.roc}年資料尚未建立，暫以${r.c.y}年計算。`);
+    if(hour&&nz(m.rate)<r.c.hour) warn.push(`時薪低於${r.c.y}年最低時薪 ${r.c.hour} 元。`);
+    const row=x=>`<tr><td>${x[0]}</td><td><span class="who ${x[1]}">${x[1]==='s'?'自付':'雇主'}</span></td><td class="f">${x[2]}</td><td class="n">${fmt(x[4])}</td></tr>`;
+    $('r'+i).innerHTML=`${warn.length?`<div class="warnbox">${warn.join('<br>')}</div>`:''}
+      <div class="totals">
+        <div class="tot t-stu"><span>學生／勞工自付</span><strong>${fmt(r.stu)}</strong></div>
+        <div class="tot t-emp"><span>雇主負擔勞保</span><strong>${fmt(r.ins)}</strong></div>
+        <div class="tot t-emp"><span>雇主負擔勞退</span><strong>${nat==='fx'?'不適用':fmt(r.pen)}</strong></div>
+        <div class="tot t-emp"><span>雇主補充保費 2.11%</span><strong>${fmt(r.nhi)}</strong></div>
+      </div>
+      <div class="bases"><span class="chip">${nat==='fx'?'勞保':'勞保／就保'} <b>${fmt(r.li)}</b></span><span class="chip">職保 <b>${fmt(r.oc)}</b></span>${nat==='fx'?'':`<span class="chip">勞退 <b>${fmt(r.pe)}</b></span>`}<span class="chip">投保 <b>${r.d}</b> 天</span></div>
+      <details><summary>看算式</summary><div class="tbl"><table>
+        <thead><tr><th>項目</th><th>負擔</th><th>算式</th><th class="n">金額</th></tr></thead>
+        <tbody>${row(r.items[0])}${row(r.items[1])}
+        <tr class="sum"><td colspan="3">自付合計</td><td class="n">${fmt(r.stu)}</td></tr>
+        ${row(r.items[2])}${row(r.items[3])}${row(r.items[4])}
+        <tr class="sum"><td colspan="3">雇主勞保合計</td><td class="n">${fmt(r.ins)}</td></tr>
+        ${row(r.items[5])}${row(r.items[6])}${row(r.items[7])}</tbody></table></div></details>`;
+    sum.stu+=r.stu;sum.ins+=r.ins;sum.pen+=r.pen;sum.gf+=r.gf;sum.nhi+=r.nhi;
+    srows+=sblock(`${rocLabel(m.ym)}${r.c.tmp?'<span class="tag tmp">暫定</span>':''}`,`薪資 ${fmt(r.wage)} 元・投保 ${r.d} 天`,r,false);
+  });
+  srows+=sblock(`合計（${months.length} 個月）`,'',sum,true);
+  $('sumrows').innerHTML=srows;
+}
+
+document.addEventListener('input',e=>{
+  const t=e.target, k=t.dataset.k;
+  if(k){
+    const i=+t.dataset.i, m=months[i];
+    if(k==='sync') m.sync=t.checked;
+    else if(k==='dh') m.dh[+t.dataset.j]=t.value;
+    else if(k==='ym'){
+      if(!t.value) return;
+      const oldMin=cfgFor(m.ym).hour; m.ym=t.value;
+      if(nz(m.rate)===oldMin){m.rate=cfgFor(m.ym).hour; const re=$('rate'+i); if(re) re.value=m.rate;}
+    }
+    else m[k]=t.value;
+    if(k==='wdays'&&!m.same){const dl=$('dl'+i); if(dl) dl.innerHTML=dayRows(i);}
+  }
+  compute();
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const a=b.dataset.act, i=+b.dataset.i;
+  if(a==='mode'){mode=b.dataset.v;$('m-month').setAttribute('aria-pressed',mode==='month');$('m-hour').setAttribute('aria-pressed',mode==='hour');render();}
+  else if(a==='same'){months[i].same=b.dataset.v==='1';render();}
+  else if(a==='full'){months[i].full=b.dataset.v==='1';render();}
+  else if(a==='nat'){nat=b.dataset.v;$('n-tw').setAttribute('aria-pressed',nat==='tw');$('n-fx').setAttribute('aria-pressed',nat==='fx');$('fxhint').hidden=nat!=='fx';compute();}
+  else if(a==='add'){
+    const last=months[months.length-1], ym=nextYm(last.ym), n=blank(ym);
+    months.push(n);render();
+    const el=$('ym'+(months.length-1)); if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  else if(a==='copy'){
+    const p=months[i-1], ym=months[i].ym, pMin=cfgFor(p.ym).hour;
+    months[i]={...p,dh:[...p.dh],ym,rate:nz(p.rate)===pMin?cfgFor(ym).hour:p.rate};
+    render();
+  }
+  else if(a==='del'){months.splice(i,1);render();}
+});
+render();
+</script>
+
+<script>
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+</script>
+</body>
+</html>
