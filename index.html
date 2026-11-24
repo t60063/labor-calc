@@ -235,7 +235,7 @@ function monthHTML(i){
     ${m.same
       ?`<div class="grid"><label>每天時數<input type="number" min="0" step="0.5" id="h${i}" data-i="${i}" data-k="hours" value="${m.hours}"></label></div>`
       :`<div class="daylist" id="dl${i}">${dayRows(i)}</div>`}`:`
-    <p class="hint">請填約定的整月月薪。月中到職或離職也一樣，不要填按天數折算後的金額。</p>
+    <p class="hint">月薪資總額用來對照勞保、勞退級距。補充保費 2.11% 依「本月實際支付薪資」計算。</p>
     <div style="display:flex;flex-direction:column;gap:6px">
       <span class="q">這個月是整月投保，還是只保幾天？</span>
       <div class="seg" role="group" aria-label="投保期間">
@@ -245,7 +245,9 @@ function monthHTML(i){
     </div>`}
     <div class="grid" ${!hour&&m.full?'hidden':''}>
       <label>投保天數（加保至退保）<input type="number" min="0" max="30" id="ins${i}" data-i="${i}" data-k="ins" value="${m.ins}"></label>
+      ${!hour&&!m.full?`<label>本月實際支付薪資（元）<input type="number" min="0" id="paid${i}" data-i="${i}" data-k="paid" value="${m.paid??''}" placeholder="同月薪資總額"></label>`:''}
     </div>
+    ${!hour&&!m.full?`<p class="q" style="margin:-4px 0 0">實際發的金額和上面的月薪資總額相同時，這格可以空白。</p>`:''}
     ${hour?`<label class="check"><input type="checkbox" id="sy${i}" data-i="${i}" data-k="sync" ${m.sync?'checked':''}> 投保天數同工作天數</label>`:''}
     <div class="wage" id="w${i}"></div>
     <div id="r${i}" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -278,7 +280,7 @@ function calcMonth(m,occPct,pt){
     ['墊償基金','e',`${fmt(li)} × 0.025% × ${f}`,li*.00025],
   ].map(r=>[...r,Math.round(r[3]*d/30)]);
   if(nat==='fx') [1,3,5].forEach(k=>{items[k][2]='外國人不適用';items[k][4]=0;});
-  const nb=(!hour&&!m.full)?Math.round(wage*d/30):wage;
+  const nb=(!hour&&!m.full&&m.paid!=null&&String(m.paid).trim()!=='')?Math.round(nz(m.paid)):wage;
   const nhiOn=$('nhi')?$('nhi').checked:true;
   items.push(['健保補充保費','e',nhiOn?`${fmt(nb)}（當月支付薪資）× 2.11%`:'未計入',0,nhiOn?Math.round(nb*.0211):0]);
   return {c,wd,hl,totH,wage,d,li,oc,pe,items,nb,nhi:items[7][4],
